@@ -9,17 +9,41 @@ class CatastroGUI(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Descarga Catastro Automática")
-        self.geometry("400x390")
+        self.configure(bg="#f6f6f8")  # Fondo claro estilo Apple
         self.resizable(False, False)
         self.create_widgets()
+        self.update_idletasks()
+        self.minsize(self.winfo_reqwidth(), self.winfo_reqheight())
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
         self.proc = None
 
     def create_widgets(self):
-        frame = ttk.Frame(self, padding=20)
-        frame.pack(fill=tk.BOTH, expand=True)
+        style = ttk.Style()
+        style.theme_use('clam')
+        # Apple-like style
+        style.configure('TFrame', background="#f6f6f8")
+        style.configure('TLabel', background="#f6f6f8", font=("San Francisco", 14))
+        style.configure('TEntry', font=("San Francisco", 14), padding=8)
+        style.configure('TButton', font=("San Francisco", 16, "bold"), padding=12, relief="flat", foreground="#fff", background="#007aff")
+        style.map('TButton', background=[('active', '#0051a8')])
 
-        # Etiquetas y campos
+        # Título grande centrado
+        title_label = ttk.Label(self, text="Descarga Catastro Automática", font=("San Francisco", 22, "bold"), background="#f6f6f8", foreground="#222")
+        title_label.pack(pady=(28, 10), anchor="center")
+
+        # Estado centrado bajo el título
+        self.status = tk.StringVar()
+        self.status.set("Rellena los campos y pulsa 'Iniciar descarga'")
+        self.status_label = ttk.Label(self, textvariable=self.status, font=("San Francisco", 13), foreground="#007aff", background="#f6f6f8")
+        self.status_label.pack(pady=(0, 18), anchor="center")
+
+        # Frame central para el formulario y el botón
+        form_frame = ttk.Frame(self, padding=24, style='TFrame')
+        form_frame.pack(anchor="center", expand=True, pady=(0, 10))
+        form_frame.columnconfigure(0, weight=1)
+        form_frame.columnconfigure(1, weight=2)
+
+        # Etiquetas y campos alineados
         labels = [
             ("Provincia*", "provincia"),
             ("Municipio*", "municipio"),
@@ -32,21 +56,24 @@ class CatastroGUI(tk.Tk):
         ]
         self.entries = {}
         for i, (label, var) in enumerate(labels):
-            ttk.Label(frame, text=label).grid(row=i, column=0, sticky=tk.W, pady=3)
-            entry = ttk.Entry(frame)
-            entry.grid(row=i, column=1, pady=3, sticky=tk.EW)
+            l = ttk.Label(form_frame, text=label, font=("San Francisco", 15), anchor="e", padding=(0, 4, 0, 4))
+            l.grid(row=i, column=0, sticky=tk.E, pady=7, padx=(0, 10))
+            entry = ttk.Entry(form_frame, font=("San Francisco", 15))
+            entry.grid(row=i, column=1, pady=7, sticky=tk.EW, ipady=5)
             self.entries[var] = entry
-        frame.columnconfigure(1, weight=1)
+        form_frame.rowconfigure(len(labels), minsize=18)
 
-        # Estado
-        self.status = tk.StringVar()
-        self.status.set("Rellena los campos y pulsa 'Iniciar descarga'")
-        self.status_label = ttk.Label(self, textvariable=self.status, foreground="blue")
-        self.status_label.pack(pady=(5, 0))
+        # Botón principal centrado bajo los campos
+        self.start_btn = ttk.Button(form_frame, text="Iniciar descarga", command=self.start_process, style='TButton')
+        self.start_btn.grid(row=len(labels)+1, column=0, columnspan=2, pady=(30, 0), ipadx=30, ipady=6, sticky="ew")
+        self.start_btn.configure(cursor="hand2")
+        self.update_idletasks()
+        # Sombra visual (no nativo, pero mejora el look)
+        try:
+            self.start_btn.master.configure(highlightbackground="#d3d3d3", highlightcolor="#d3d3d3", highlightthickness=2)
+        except Exception:
+            pass
 
-        # Botón principal
-        self.start_btn = ttk.Button(self, text="Iniciar descarga", command=self.start_process)
-        self.start_btn.pack(pady=15)
 
     def start_process(self):
         # Validación básica
