@@ -43,29 +43,43 @@ class CatastroGUI(tk.Tk):
         form_frame.columnconfigure(0, weight=1)
         form_frame.columnconfigure(1, weight=2)
 
-        # Etiquetas y campos alineados
-        labels = [
+        # Campos obligatorios arriba
+        obligatorios = [
             ("Provincia*", "provincia"),
             ("Municipio*", "municipio"),
             ("Vía (calle)*", "via"),
             ("Número*", "numero"),
-            ("Bloque", "bloque"),
-            ("Escalera", "escalera"),
-            ("Planta", "planta"),
-            ("Puerta", "puerta"),
         ]
         self.entries = {}
-        for i, (label, var) in enumerate(labels):
+        for i, (label, var) in enumerate(obligatorios):
             l = ttk.Label(form_frame, text=label, font=("San Francisco", 15), anchor="e", padding=(0, 4, 0, 4))
             l.grid(row=i, column=0, sticky=tk.E, pady=7, padx=(0, 10))
             entry = ttk.Entry(form_frame, font=("San Francisco", 15))
             entry.grid(row=i, column=1, pady=7, sticky=tk.EW, ipady=5)
             self.entries[var] = entry
-        form_frame.rowconfigure(len(labels), minsize=18)
-
+        # Separador visual
+        sep = ttk.Separator(form_frame, orient='horizontal')
+        sep.grid(row=len(obligatorios), column=0, columnspan=2, sticky="ew", pady=(18, 8))
+        # LabelFrame para Dirección Interna
+        interna_frame = ttk.LabelFrame(form_frame, text="Dirección interna", labelanchor="n", padding=(16, 12), style='White.TLabelframe')
+        interna_frame.grid(row=len(obligatorios)+1, column=0, columnspan=2, sticky="ew")
+        style.configure('White.TLabelframe', background="#f6f6f8", borderwidth=0)
+        style.configure('White.TLabelframe.Label', background="#f6f6f8", font=("San Francisco", 13, "bold"))
+        internos = [
+            ("Bloque", "bloque"),
+            ("Escalera", "escalera"),
+            ("Planta", "planta"),
+            ("Puerta", "puerta"),
+        ]
+        for i, (label, var) in enumerate(internos):
+            l = ttk.Label(interna_frame, text=label, font=("San Francisco", 15), anchor="e", padding=(0, 4, 0, 4))
+            l.grid(row=i, column=0, sticky=tk.E, pady=7, padx=(0, 10))
+            entry = ttk.Entry(interna_frame, font=("San Francisco", 15), width=16)
+            entry.grid(row=i, column=1, pady=7, sticky=tk.EW, ipady=5)
+            self.entries[var] = entry
         # Botón principal centrado bajo los campos
         self.start_btn = ttk.Button(form_frame, text="Iniciar descarga", command=self.start_process, style='TButton')
-        self.start_btn.grid(row=len(labels)+1, column=0, columnspan=2, pady=(30, 0), ipadx=30, ipady=6, sticky="ew")
+        self.start_btn.grid(row=len(obligatorios)+2, column=0, columnspan=2, pady=(30, 0), ipadx=30, ipady=6, sticky="ew")
         self.start_btn.configure(cursor="hand2")
         self.update_idletasks()
         # Sombra visual (no nativo, pero mejora el look)
@@ -120,10 +134,28 @@ class CatastroGUI(tk.Tk):
             else:
                 self.log_queue.put("Error en la descarga")
                 self.status.set("Error en la descarga. Pulsa ENTER o acepta para reintentar.")
-                messagebox.showerror("Error", "Ha ocurrido un error. Consulta el log para más detalles.\nPulsa ENTER o acepta para reintentar.")
-                # Limpiar solo los campos obligatorios
-                for campo in ["provincia", "municipio", "via", "numero"]:
-                    self.entries[campo].delete(0, tk.END)
+                # Espera a que el usuario cierre el messagebox
+                error_msg = "Ha ocurrido un error. Consulta el log para más detalles.\nPulsa ENTER o acepta para reintentar."
+                messagebox.showerror("Error", error_msg)
+                # Buscar si hay error de dirección interna en el log
+                borrar_internos = False
+                try:
+                    # Busca en el log si hay alguna línea con 'direccion interna' o 'dirección interna' (con/sin acento)
+                    if hasattr(self, 'log_text') and self.log_text.winfo_exists():
+                        log = self.log_text.get("1.0", "end").lower()
+                        if ("direccion interna" in log) or ("dirección interna" in log):
+                            borrar_internos = True
+                    # También busca en el mensaje de error mostrado
+                    if ("direccion interna" in error_msg.lower()) or ("dirección interna" in error_msg.lower()):
+                        borrar_internos = True
+                except Exception:
+                    pass
+                if borrar_internos:
+                    for campo in ["bloque", "escalera", "planta", "puerta"]:
+                        self.entries[campo].delete(0, tk.END)
+                else:
+                    for campo in ["provincia", "municipio", "via", "numero"]:
+                        self.entries[campo].delete(0, tk.END)
                 self.start_btn.config(state=tk.NORMAL)
         except Exception as e:
             self.log_queue.put(f"Error ejecutando el script: {e}")

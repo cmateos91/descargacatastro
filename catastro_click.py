@@ -98,8 +98,11 @@ try:
                     print("Provincia vacía, campo limpiado.", flush=True)
             except Exception as e:
                 print("[ERROR CATRASTO] No se pudo escribir la PROVINCIA. Verifique el nombre. El flujo se detiene.", file=sys.stderr, flush=True)
-                driver.quit()
-                sys.exit(1)
+                try:
+                    driver.quit()
+                except:
+                    pass
+                os._exit(1)
 
             # Paso: escribir municipio
             try:
@@ -118,8 +121,11 @@ try:
                     print("Municipio vacío, campo limpiado.", flush=True)
             except Exception as e:
                 print("[ERROR CATRASTO] No se pudo escribir el MUNICIPIO. Verifique el nombre. El flujo se detiene.", file=sys.stderr, flush=True)
-                driver.quit()
-                sys.exit(1)
+                try:
+                    driver.quit()
+                except:
+                    pass
+                os._exit(1)
 
             # Paso: escribir vía
             try:
@@ -138,8 +144,11 @@ try:
                     print("Vía vacía, campo limpiado.", flush=True)
             except Exception as e:
                 print("[ERROR CATRASTO] No se pudo escribir la VÍA. Verifique el nombre. El flujo se detiene.", file=sys.stderr, flush=True)
-                driver.quit()
-                sys.exit(1)
+                try:
+                    driver.quit()
+                except:
+                    pass
+                os._exit(1)
 
             # Paso: escribir número
             # Comprobar si el campo número es clickeable tras introducir la vía
@@ -150,8 +159,11 @@ try:
                 campo_numero.clear()
             except Exception as e:
                 print("[ERROR CATRASTO] La VÍA introducida no es válida o no existe en el catastro. El flujo se detiene.", file=sys.stderr, flush=True)
-                driver.quit()
-                sys.exit(1)
+                try:
+                    driver.quit()
+                except:
+                    pass
+                os._exit(1)
             if numero:
                 for letra in numero:
                     campo_numero.send_keys(letra)
@@ -229,8 +241,11 @@ try:
             except Exception as e:
                 # Si no se puede pulsar el botón, probablemente hay error en PROVINCIA, MUNICIPIO o VIA
                 print("ERROR: No se puede pulsar el botón DATOS. Verifique que los campos PROVINCIA, MUNICIPIO o VÍA sean correctos y existen en el catastro.", file=sys.stderr, flush=True)
-                driver.quit()
-                sys.exit(1)
+                try:
+                    driver.quit()
+                except:
+                    pass
+                os._exit(1)
 
             # Cambiar a contenido principal para comprobar error y detener el flujo si aparece
             driver.switch_to.default_content()
@@ -243,12 +258,11 @@ try:
                 print("\n[ERROR CATRASTO] Consulta detenida por error en los datos:", file=sys.stderr, flush=True)
                 print(f"  → {msg}", file=sys.stderr, flush=True)
                 print("El navegador se cerrará y el proceso termina.", file=sys.stderr, flush=True)
-                driver.quit()
-                if len(sys.argv) < 9:
-                    input("Pulsa ENTER para reintentar...")
-                    os.execv(sys.executable, [sys.executable] + sys.argv)
-                else:
-                    sys.exit(1)
+                try:
+                    driver.quit()
+                except:
+                    pass
+                os._exit(1)
             except TimeoutException:
                 pass
 
@@ -263,8 +277,11 @@ try:
                 time.sleep(3)
             except Exception as e:
                 print("No se pudo hacer clic en el enlace 'Consulta Descriptiva y Gráfica':", e, flush=True)
-                driver.quit()
-                sys.exit(1)
+                try:
+                    driver.quit()
+                except:
+                    pass
+                os._exit(1)
 
             # Paso: pulsar en 'Cartografía'
             try:
@@ -410,4 +427,7 @@ try:
     else:
         print("No se seleccionó carpeta destino. Los archivos permanecen en:", DOWNLOAD_DIR, flush=True)
 finally:
-    driver.quit()
+    try:
+        driver.quit()
+    except Exception:
+        pass
