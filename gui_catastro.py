@@ -136,7 +136,23 @@ class CatastroGUI(tk.Tk):
                 self.status.set("Error en la descarga. Pulsa ENTER o acepta para reintentar.")
                 # Espera a que el usuario cierre el messagebox
                 error_msg = "Ha ocurrido un error. Consulta el log para más detalles.\nPulsa ENTER o acepta para reintentar."
-                messagebox.showerror("Error", error_msg)
+                # Diálogo personalizado con botón para abrir la web del Catastro
+                def abrir_catastro():
+                    import webbrowser
+                    webbrowser.open_new("https://www1.sedecatastro.gob.es/Cartografia/mapa.aspx?buscar=S")
+                    if error_win.winfo_exists():
+                        error_win.destroy()
+                error_win = tk.Toplevel(self)
+                error_win.title("Error Catastro")
+                error_win.geometry("480x210")
+                error_win.grab_set()
+                error_win.configure(bg="#f6f6f8")
+                tk.Label(error_win, text=error_msg, font=("San Francisco", 13), bg="#f6f6f8", wraplength=440, justify="left").pack(pady=(18,12), padx=16)
+                btn_frame = tk.Frame(error_win, bg="#f6f6f8")
+                btn_frame.pack(pady=(0,10))
+                tk.Button(btn_frame, text="Ir al Catastro", font=("San Francisco", 12, "bold"), bg="#007aff", fg="#fff", relief="flat", padx=16, pady=6, command=abrir_catastro, cursor="hand2").pack(side="left", padx=12)
+                tk.Button(btn_frame, text="Reintentar", font=("San Francisco", 12, "bold"), bg="#bbb", fg="#222", relief="flat", padx=16, pady=6, command=error_win.destroy, cursor="hand2").pack(side="left", padx=12)
+                self.wait_window(error_win)
                 # Buscar si hay error de dirección interna en el log
                 borrar_internos = False
                 try:
