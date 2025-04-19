@@ -83,34 +83,95 @@ class CatastroGUI(tk.Tk):
                 return
         self.status.set("Ejecutando script... espera unos minutos")
         self.start_btn.config(state=tk.DISABLED)
+        # Abrir ventana de log
+        self.open_log_window()
+        # Inicializa la cola de log
+        import queue
+        self.log_queue = queue.Queue()
         # Lanzar el script en un hilo para no bloquear la GUI
-        Thread(target=self.run_script, daemon=True).start()
+        Thread(target=self.run_script_with_queue, daemon=True).start()
+        self.after(100, self.process_log_queue)
 
-    def run_script(self):
-        # Construir argumentos
+    def run_script_with_queue(self):
+        import queue
         args = [sys.executable, os.path.join(os.path.dirname(__file__), "catastro_click.py")]
         args += [self.entries[k].get().strip() for k in ["provincia", "municipio", "via", "numero", "bloque", "escalera", "planta", "puerta"]]
         try:
-            proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
             self.proc = proc
-            while True:
-                line = proc.stdout.readline()
-                if not line and proc.poll() is not None:
-                    break
-                if line:
-                    self.status.set(line.strip())
-            _, err = proc.communicate()
+            import threading
+            def enqueue_output(pipe, q):
+                for line in iter(pipe.readline, ''):
+                    q.put(line.rstrip())
+                pipe.close()
+            # Lanza hilos para leer stdout y stderr
+            t1 = threading.Thread(target=enqueue_output, args=(proc.stdout, self.log_queue))
+            t2 = threading.Thread(target=enqueue_output, args=(proc.stderr, self.log_queue))
+            t1.daemon = t2.daemon = True
+            t1.start()
+            t2.start()
+            proc.wait()
+            t1.join()
+            t2.join()
             if proc.returncode == 0:
+                self.log_queue.put("¡Descarga completada!")
                 self.status.set("¡Descarga completada!")
                 messagebox.showinfo("Éxito", "Descarga completada y archivos movidos.")
             else:
+                self.log_queue.put("Error en la descarga")
                 self.status.set("Error en la descarga")
-                messagebox.showerror("Error", f"Ha ocurrido un error:\n{err}")
+                messagebox.showerror("Error", "Ha ocurrido un error. Consulta el log para más detalles.")
         except Exception as e:
+            self.log_queue.put(f"Error ejecutando el script: {e}")
             self.status.set("Error ejecutando el script")
             messagebox.showerror("Error", str(e))
         finally:
             self.start_btn.config(state=tk.NORMAL)
+
+    def process_log_queue(self):
+        # Procesa la cola y actualiza el log en la ventana
+        if hasattr(self, 'log_queue'):
+            import queue
+            try:
+                while True:
+                    line = self.log_queue.get_nowait()
+                    self.append_log(line)
+            except queue.Empty:
+                pass
+        self.after(100, self.process_log_queue)
+
+    def open_log_window(self):
+        # Crea una ventana de log si no existe
+        if hasattr(self, 'log_window') and self.log_window.winfo_exists():
+            self.log_window.lift()
+            return
+        self.log_window = tk.Toplevel(self)
+        self.log_window.title("Log de descarga Catastro")
+        self.log_window.geometry("900x500")
+        # Scrollbar
+        scrollbar = tk.Scrollbar(self.log_window)
+        scrollbar.pack(side="right", fill="y")
+        # Text widget con estilo
+        self.log_text = tk.Text(
+            self.log_window,
+            wrap="word",
+            font=("Consolas", 16),
+            bg="#23272e",
+            fg="#ffffff",
+            insertbackground="#ffffff",
+            yscrollcommand=scrollbar.set
+        )
+        self.log_text.pack(expand=True, fill="both")
+        scrollbar.config(command=self.log_text.yview)
+        self.log_text.insert("end", "--- Inicio del log ---\n")
+        self.log_text.see("end")
+        self.log_window.focus()
+
+    def append_log(self, text):
+        # Añade texto al log en la ventana
+        if hasattr(self, 'log_text') and self.log_text.winfo_exists():
+            self.log_text.insert("end", text + "\n")
+            self.log_text.see("end")
 
     def on_closing(self):
         if self.proc and self.proc.poll() is None:
