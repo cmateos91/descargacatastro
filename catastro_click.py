@@ -244,7 +244,11 @@ try:
                 print(f"  → {msg}", file=sys.stderr, flush=True)
                 print("El navegador se cerrará y el proceso termina.", file=sys.stderr, flush=True)
                 driver.quit()
-                sys.exit(1)
+                if len(sys.argv) < 9:
+                    input("Pulsa ENTER para reintentar...")
+                    os.execv(sys.executable, [sys.executable] + sys.argv)
+                else:
+                    sys.exit(1)
             except TimeoutException:
                 pass
 

@@ -119,8 +119,12 @@ class CatastroGUI(tk.Tk):
                 messagebox.showinfo("Éxito", "Descarga completada y archivos movidos.")
             else:
                 self.log_queue.put("Error en la descarga")
-                self.status.set("Error en la descarga")
-                messagebox.showerror("Error", "Ha ocurrido un error. Consulta el log para más detalles.")
+                self.status.set("Error en la descarga. Pulsa ENTER o acepta para reintentar.")
+                messagebox.showerror("Error", "Ha ocurrido un error. Consulta el log para más detalles.\nPulsa ENTER o acepta para reintentar.")
+                # Limpiar solo los campos obligatorios
+                for campo in ["provincia", "municipio", "via", "numero"]:
+                    self.entries[campo].delete(0, tk.END)
+                self.start_btn.config(state=tk.NORMAL)
         except Exception as e:
             self.log_queue.put(f"Error ejecutando el script: {e}")
             self.status.set("Error ejecutando el script")
