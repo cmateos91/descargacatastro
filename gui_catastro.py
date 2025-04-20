@@ -1,124 +1,103 @@
-import tkinter as tk
-from tkinter import ttk, messagebox
-from threading import Thread
-import sys
-import os
+import customtkinter as ctk
 import subprocess
+import os
+import sys
+import queue
+import threading
+from threading import Thread
+from tkinter import messagebox
+import webbrowser
 
-class CatastroGUI(tk.Tk):
+class CatastroAppModern(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("Descarga Catastro Automática")
-        self.configure(bg="#f6f6f8")  # Fondo claro estilo Apple
-        self.resizable(False, False)
-        self.create_widgets()
-        self.update_idletasks()
-        self.minsize(self.winfo_reqwidth(), self.winfo_reqheight())
-        self.protocol("WM_DELETE_WINDOW", self.on_closing)
+        # No establecer geometry fijo
+        ctk.set_appearance_mode("system")  # Claro/Oscuro automático
+        ctk.set_default_color_theme("blue")
+
+        self.entries = {}
         self.proc = None
 
-    def create_widgets(self):
-        style = ttk.Style()
-        style.theme_use('clam')
-        # Apple-like style
-        style.configure('TFrame', background="#f6f6f8")
-        style.configure('TLabel', background="#f6f6f8", font=("San Francisco", 14))
-        style.configure('TEntry', font=("San Francisco", 14), padding=8)
-        style.configure('TButton', font=("San Francisco", 16, "bold"), padding=12, relief="flat", foreground="#fff", background="#007aff")
-        style.map('TButton', background=[('active', '#0051a8')])
+        self.build_ui()
+        self.update_idletasks()  # Asegura que todo está renderizado
+        # Ajusta la ventana al tamaño mínimo necesario para mostrar todo
+        width = self.winfo_reqwidth()
+        height = self.winfo_reqheight()
+        self.geometry(f"{width}x{height}")
+        self.minsize(width, height)
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
-        # Título grande centrado
-        title_label = ttk.Label(self, text="Descarga Catastro Automática", font=("San Francisco", 22, "bold"), background="#f6f6f8", foreground="#222")
-        title_label.pack(pady=(28, 10), anchor="center")
+    def build_ui(self):
+        # Logo decorativo (🇪🇸)
+        ctk.CTkLabel(self, text="🇪🇸", font=("Arial", 60)).pack(pady=(10, 0))
 
-        # Estado centrado bajo el título
-        self.status = tk.StringVar()
-        self.status.set("Rellena los campos y pulsa 'Iniciar descarga'")
-        self.status_label = ttk.Label(self, textvariable=self.status, font=("San Francisco", 13), foreground="#007aff", background="#f6f6f8")
-        self.status_label.pack(pady=(0, 18), anchor="center")
+        # Título
+        ctk.CTkLabel(self, text="Descarga Catastro Automática",
+                     font=("Arial Rounded MT Bold", 34)).pack(pady=(10, 16))
 
-        # Frame central para el formulario y el botón
-        form_frame = ttk.Frame(self, padding=24, style='TFrame')
-        form_frame.pack(anchor="center", expand=True, pady=(0, 10))
-        form_frame.columnconfigure(0, weight=1)
-        form_frame.columnconfigure(1, weight=2)
+        self.status = ctk.StringVar(value="Rellena los campos y pulsa 'Iniciar descarga'")
+        ctk.CTkLabel(self, textvariable=self.status, font=("Arial", 22), text_color="gray").pack(pady=(0, 8))
 
-        # Campos obligatorios arriba
-        obligatorios = [
-            ("Provincia*", "provincia"),
-            ("Municipio*", "municipio"),
-            ("Vía (calle)*", "via"),
-            ("Número*", "numero"),
-        ]
-        self.entries = {}
-        for i, (label, var) in enumerate(obligatorios):
-            l = ttk.Label(form_frame, text=label, font=("San Francisco", 15), anchor="e", padding=(0, 4, 0, 4))
-            l.grid(row=i, column=0, sticky=tk.E, pady=7, padx=(0, 10))
-            entry = ttk.Entry(form_frame, font=("San Francisco", 15))
-            entry.grid(row=i, column=1, pady=7, sticky=tk.EW, ipady=5)
-            self.entries[var] = entry
-        # Separador visual
-        sep = ttk.Separator(form_frame, orient='horizontal')
-        sep.grid(row=len(obligatorios), column=0, columnspan=2, sticky="ew", pady=(18, 8))
-        # LabelFrame para Dirección Interna
-        interna_frame = ttk.LabelFrame(form_frame, text="Dirección interna", labelanchor="n", padding=(16, 12), style='White.TLabelframe')
-        interna_frame.grid(row=len(obligatorios)+1, column=0, columnspan=2, sticky="ew")
-        style.configure('White.TLabelframe', background="#f6f6f8", borderwidth=0)
-        style.configure('White.TLabelframe.Label', background="#f6f6f8", font=("San Francisco", 13, "bold"))
-        internos = [
-            ("Bloque", "bloque"),
-            ("Escalera", "escalera"),
-            ("Planta", "planta"),
-            ("Puerta", "puerta"),
-        ]
-        for i, (label, var) in enumerate(internos):
-            l = ttk.Label(interna_frame, text=label, font=("San Francisco", 15), anchor="e", padding=(0, 4, 0, 4))
-            l.grid(row=i, column=0, sticky=tk.E, pady=7, padx=(0, 10))
-            entry = ttk.Entry(interna_frame, font=("San Francisco", 15), width=16)
-            entry.grid(row=i, column=1, pady=7, sticky=tk.EW, ipady=5)
-            self.entries[var] = entry
-        # Botón principal centrado bajo los campos
-        self.start_btn = ttk.Button(form_frame, text="Iniciar descarga", command=self.start_process, style='TButton')
-        self.start_btn.grid(row=len(obligatorios)+2, column=0, columnspan=2, pady=(30, 0), ipadx=30, ipady=6, sticky="ew")
-        self.start_btn.configure(cursor="hand2")
-        self.update_idletasks()
-        # Sombra visual (no nativo, pero mejora el look)
-        try:
-            self.start_btn.master.configure(highlightbackground="#d3d3d3", highlightcolor="#d3d3d3", highlightthickness=2)
-        except Exception:
-            pass
+        self.form = ctk.CTkFrame(self, corner_radius=16)
+        self.form.pack(padx=30, pady=20, fill="both", expand=False)
 
+        campos_obligatorios = [("Provincia*", "provincia"),
+                               ("Municipio*", "municipio"),
+                               ("Vía (calle)*", "via"),
+                               ("Número*", "numero")]
+
+        for label, key in campos_obligatorios:
+            self.add_entry(self.form, label, key, font_size=22)
+
+        ctk.CTkLabel(self.form, text="Dirección interna (opcional)", font=("Arial", 20, "bold")).pack(pady=(26, 14))
+
+        campos_internos = [("Bloque", "bloque"),
+                           ("Escalera", "escalera"),
+                           ("Planta", "planta"),
+                           ("Puerta", "puerta")]
+
+        for label, key in campos_internos:
+            self.add_entry(self.form, label, key, font_size=20)
+
+        # Botón principal
+        self.btn = ctk.CTkButton(self, text="⬇️ Iniciar descarga", font=("Arial Rounded MT Bold", 28),
+                                 height=70, command=self.start_process)
+        self.btn.pack(pady=35)
+
+    def add_entry(self, parent, label, key, font_size=22):
+        frame = ctk.CTkFrame(parent, fg_color="transparent")
+        frame.pack(fill="x", pady=10, padx=14)
+        ctk.CTkLabel(frame, text=label, width=170, anchor="w", font=("Arial", font_size)).pack(side="left")
+        entry = ctk.CTkEntry(frame, font=("Arial", font_size), height=38)
+        entry.pack(side="left", fill="x", expand=True, padx=(10, 0))
+        self.entries[key] = entry
 
     def start_process(self):
-        # Validación básica
         for campo in ["provincia", "municipio", "via", "numero"]:
             if not self.entries[campo].get().strip():
                 messagebox.showerror("Error", f"El campo '{campo.capitalize()}' es obligatorio.")
                 return
-        self.status.set("Ejecutando script... espera unos minutos")
-        self.start_btn.config(state=tk.DISABLED)
-        # Abrir ventana de log
+
+        self.status.set("⏳ Ejecutando script... espera unos minutos")
+        self.btn.configure(state="disabled")
         self.open_log_window()
-        # Inicializa la cola de log
-        import queue
         self.log_queue = queue.Queue()
-        # Lanzar el script en un hilo para no bloquear la GUI
         Thread(target=self.run_script_with_queue, daemon=True).start()
         self.after(100, self.process_log_queue)
 
     def run_script_with_queue(self):
-        import queue
         args = [sys.executable, os.path.join(os.path.dirname(__file__), "catastro_click.py")]
         args += [self.entries[k].get().strip() for k in ["provincia", "municipio", "via", "numero", "bloque", "escalera", "planta", "puerta"]]
         try:
             proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
             self.proc = proc
-            import threading
+
             def enqueue_output(pipe, q):
                 for line in iter(pipe.readline, ''):
                     q.put(line.rstrip())
                 pipe.close()
-            # Lanza hilos para leer stdout y stderr
+
             t1 = threading.Thread(target=enqueue_output, args=(proc.stdout, self.log_queue))
             t2 = threading.Thread(target=enqueue_output, args=(proc.stderr, self.log_queue))
             t1.daemon = t2.daemon = True
@@ -127,109 +106,109 @@ class CatastroGUI(tk.Tk):
             proc.wait()
             t1.join()
             t2.join()
+
             if proc.returncode == 0:
-                self.log_queue.put("¡Descarga completada!")
-                self.status.set("¡Descarga completada!")
+                self.log_queue.put("✅ ¡Descarga completada!")
+                self.status.set("✅ ¡Descarga completada!")
                 messagebox.showinfo("Éxito", "Descarga completada y archivos movidos.")
             else:
-                self.log_queue.put("Error en la descarga")
-                self.status.set("Error en la descarga. Pulsa ENTER o acepta para reintentar.")
-                # Espera a que el usuario cierre el messagebox
-                error_msg = "Ha ocurrido un error. Consulta el log para más detalles.\nPulsa ENTER o acepta para reintentar."
-                # Diálogo personalizado con botón para abrir la web del Catastro
-                def abrir_catastro():
-                    import webbrowser
-                    webbrowser.open_new("https://www1.sedecatastro.gob.es/Cartografia/mapa.aspx?buscar=S")
-                    if error_win.winfo_exists():
-                        error_win.destroy()
-                error_win = tk.Toplevel(self)
-                error_win.title("Error Catastro")
-                error_win.geometry("480x210")
-                error_win.grab_set()
-                error_win.configure(bg="#f6f6f8")
-                tk.Label(error_win, text=error_msg, font=("San Francisco", 13), bg="#f6f6f8", wraplength=440, justify="left").pack(pady=(18,12), padx=16)
-                btn_frame = tk.Frame(error_win, bg="#f6f6f8")
-                btn_frame.pack(pady=(0,10))
-                tk.Button(btn_frame, text="Ir al Catastro", font=("San Francisco", 12, "bold"), bg="#007aff", fg="#fff", relief="flat", padx=16, pady=6, command=abrir_catastro, cursor="hand2").pack(side="left", padx=12)
-                tk.Button(btn_frame, text="Reintentar", font=("San Francisco", 12, "bold"), bg="#bbb", fg="#222", relief="flat", padx=16, pady=6, command=error_win.destroy, cursor="hand2").pack(side="left", padx=12)
-                self.wait_window(error_win)
-                # Buscar si hay error de dirección interna en el log
-                borrar_internos = False
-                try:
-                    # Busca en el log si hay alguna línea con 'direccion interna' o 'dirección interna' (con/sin acento)
-                    if hasattr(self, 'log_text') and self.log_text.winfo_exists():
-                        log = self.log_text.get("1.0", "end").lower()
-                        if ("direccion interna" in log) or ("dirección interna" in log):
-                            borrar_internos = True
-                    # También busca en el mensaje de error mostrado
-                    if ("direccion interna" in error_msg.lower()) or ("dirección interna" in error_msg.lower()):
-                        borrar_internos = True
-                except Exception:
-                    pass
-                if borrar_internos:
-                    for campo in ["bloque", "escalera", "planta", "puerta"]:
-                        self.entries[campo].delete(0, tk.END)
-                else:
-                    for campo in ["provincia", "municipio", "via", "numero"]:
-                        self.entries[campo].delete(0, tk.END)
-                self.start_btn.config(state=tk.NORMAL)
+                self.log_queue.put("❌ Error en la descarga")
+                self.status.set("❌ Error. Pulsa ENTER o acepta para reintentar.")
+                self.show_error_dialog()
+
         except Exception as e:
-            self.log_queue.put(f"Error ejecutando el script: {e}")
-            self.status.set("Error ejecutando el script")
+            self.log_queue.put(f"⚠️ Error ejecutando el script: {e}")
+            self.status.set("⚠️ Error ejecutando el script")
             messagebox.showerror("Error", str(e))
         finally:
-            self.start_btn.config(state=tk.NORMAL)
+            self.btn.configure(state="normal")
 
-    def process_log_queue(self):
-        # Procesa la cola y actualiza el log en la ventana
-        if hasattr(self, 'log_queue'):
-            import queue
-            try:
-                while True:
-                    line = self.log_queue.get_nowait()
-                    self.append_log(line)
-            except queue.Empty:
-                pass
-        self.after(100, self.process_log_queue)
+    def show_error_dialog(self):
+        win = ctk.CTkToplevel(self)
+        win.title("Error Catastro")
+        win.geometry("700x340")
+        win.lift()
+        win.focus_force()
+        win.attributes("-topmost", True)
+        error_msg = "Ha ocurrido un error. Consulta el log.\nPulsa ENTER o acepta para reintentar."
+        ctk.CTkLabel(
+            win,
+            text=error_msg,
+            wraplength=660,
+            font=("Arial", 28, "bold"),
+            justify="center"
+        ).pack(pady=(38, 22), padx=32)
+        btns = ctk.CTkFrame(win, fg_color="transparent")
+        btns.pack(pady=24)
+        ctk.CTkButton(
+            btns,
+            text="🌐 Ir al Catastro",
+            font=("Arial", 24, "bold"),
+            height=60,
+            width=240,
+            command=lambda: [webbrowser.open("https://www1.sedecatastro.gob.es/Cartografia/mapa.aspx?buscar=S"), win.destroy()]
+        ).pack(side="left", padx=30)
+        ctk.CTkButton(
+            btns,
+            text="🔁 Reintentar",
+            font=("Arial", 24, "bold"),
+            height=60,
+            width=240,
+            command=win.destroy
+        ).pack(side="left", padx=30)
+        self.wait_window(win)
+
+        # --- Restaurar lógica de borrado inteligente tras error ---
+        borrar_internos = False
+        try:
+            # Busca en el log si hay alguna línea con 'direccion interna' o 'dirección interna' (con/sin acento)
+            if hasattr(self, 'log_box') and self.log_box.winfo_exists():
+                log = self.log_box.get("1.0", "end").lower()
+                if ("direccion interna" in log) or ("dirección interna" in log):
+                    borrar_internos = True
+            # También busca en el mensaje de error mostrado
+            if ("direccion interna" in error_msg.lower()) or ("dirección interna" in error_msg.lower()):
+                borrar_internos = True
+        except Exception:
+            pass
+        if borrar_internos:
+            for campo in ["bloque", "escalera", "planta", "puerta"]:
+                self.entries[campo].delete(0, "end")
+        else:
+            for campo in ["provincia", "municipio", "via", "numero"]:
+                self.entries[campo].delete(0, "end")
 
     def open_log_window(self):
-        # Crea una ventana de log si no existe
-        if hasattr(self, 'log_window') and self.log_window.winfo_exists():
-            self.log_window.lift()
-            return
-        self.log_window = tk.Toplevel(self)
-        self.log_window.title("Log de descarga Catastro")
-        self.log_window.geometry("900x500")
-        # Scrollbar
-        scrollbar = tk.Scrollbar(self.log_window)
-        scrollbar.pack(side="right", fill="y")
-        # Text widget con estilo
-        self.log_text = tk.Text(
-            self.log_window,
-            wrap="word",
-            font=("Consolas", 16),
-            bg="#23272e",
-            fg="#ffffff",
-            insertbackground="#ffffff",
-            yscrollcommand=scrollbar.set
-        )
-        self.log_text.pack(expand=True, fill="both")
-        scrollbar.config(command=self.log_text.yview)
-        self.log_text.insert("end", "--- Inicio del log ---\n")
-        self.log_text.see("end")
-        self.log_window.focus()
+        self.log_win = ctk.CTkToplevel(self)
+        self.log_win.title("Log de descarga Catastro")
+        self.log_win.geometry("980x600")
+        self.log_box = ctk.CTkTextbox(self.log_win, font=("Consolas", 22), wrap="word")
+        self.log_box.pack(expand=True, fill="both", padx=20, pady=20)
+        self.log_box.insert("end", "--- Inicio del log ---\n")
+        self.log_box.configure(state="disabled")
 
-    def append_log(self, text):
-        # Añade texto al log en la ventana
-        if hasattr(self, 'log_text') and self.log_text.winfo_exists():
-            self.log_text.insert("end", text + "\n")
-            self.log_text.see("end")
+    def append_log(self, line):
+        if hasattr(self, "log_box") and self.log_box.winfo_exists():
+            self.log_box.configure(state="normal")
+            self.log_box.insert("end", line + "\n")
+            self.log_box.see("end")
+            self.log_box.configure(state="disabled")
+
+    def process_log_queue(self):
+        try:
+            while True:
+                line = self.log_queue.get_nowait()
+                self.append_log(line)
+        except queue.Empty:
+            pass
+        self.after(100, self.process_log_queue)
 
     def on_closing(self):
         if self.proc and self.proc.poll() is None:
             self.proc.terminate()
         self.destroy()
 
+
 if __name__ == "__main__":
-    app = CatastroGUI()
+    app = CatastroAppModern()
     app.mainloop()
