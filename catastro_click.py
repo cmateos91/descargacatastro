@@ -37,19 +37,34 @@ driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), opti
 
 import sys
 # Permitir entrada por argumentos o por consola
-if len(sys.argv) >= 9:
-    provincia, municipio, via, numero, bloque, escalera, planta, puerta = sys.argv[1:9]
-    print(f"Datos recibidos por argumentos: provincia={provincia}, municipio={municipio}, via={via}, numero={numero}, bloque={bloque}, escalera={escalera}, planta={planta}, puerta={puerta}", flush=True)
+if len(sys.argv) >= 10:
+    # Nuevo formato: ref_catastral, provincia, municipio, via, numero, bloque, escalera, planta, puerta
+    ref_catastral = sys.argv[1]
+    provincia, municipio, via, numero, bloque, escalera, planta, puerta = sys.argv[2:10]
+    
+    if ref_catastral:
+        print(f"Datos recibidos por argumentos: referencia_catastral={ref_catastral}", flush=True)
+        print("Se hará búsqueda por referencia catastral, ignorando los demás campos.", flush=True)
+    else:
+        print(f"Datos recibidos por argumentos: provincia={provincia}, municipio={municipio}, via={via}, numero={numero}, bloque={bloque}, escalera={escalera}, planta={planta}, puerta={puerta}", flush=True)
 else:
+    # Pedir datos por consola
     print("Introduce los datos para la consulta catastral:", flush=True)
-    provincia = input("Provincia: ").strip()
-    municipio = input("Municipio: ").strip()
-    via = input("Vía (solo nombre, sin tipo): ").strip()
-    numero = input("Número: ").strip()
-    bloque = input("Bloque (vacío si no aplica): ").strip()
-    escalera = input("Escalera (vacío si no aplica): ").strip()
-    planta = input("Planta (vacío si no aplica): ").strip()
-    puerta = input("Puerta (vacío si no aplica): ").strip()
+    ref_catastral = input("Referencia Catastral (dejar vacío para búsqueda por dirección): ").strip()
+    
+    if not ref_catastral:
+        provincia = input("Provincia: ").strip()
+        municipio = input("Municipio: ").strip()
+        via = input("Vía (solo nombre, sin tipo): ").strip()
+        numero = input("Número: ").strip()
+        bloque = input("Bloque (vacío si no aplica): ").strip()
+        escalera = input("Escalera (vacío si no aplica): ").strip()
+        planta = input("Planta (vacío si no aplica): ").strip()
+        puerta = input("Puerta (vacío si no aplica): ").strip()
+    else:
+        # Valores vacíos para los demás campos
+        provincia = municipio = via = numero = bloque = escalera = planta = puerta = ""
+
 print("\n--- Iniciando consulta automática... ---\n", flush=True)
 
 try:
@@ -66,7 +81,6 @@ try:
     elemento.click()
 
     # Espera un poco para que el DOM se actualice tras el primer clic
-    import time
     time.sleep(2)
 
     # Tras el primer clic, busca directamente en el primer iframe
@@ -74,178 +88,228 @@ try:
     if len(iframes) > 0:
         driver.switch_to.frame(iframes[0])
         try:
-            enlace_calle_numero = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, "//a[normalize-space(text())='CALLE/NÚMERO']"))
-            )
-            enlace_calle_numero.click()
-            print("Hecho clic en CALLE/NÚMERO (primer iframe)", flush=True)
-
-            # Paso: escribir la provincia y pulsar ENTER
-            from selenium.webdriver.common.keys import Keys
-            try:
-                campo_provincia = WebDriverWait(driver, 10).until(
-                    EC.element_to_be_clickable((By.ID, "ctl00_Contenido_provinceSelector"))
-                )
-                campo_provincia.clear()
-                if provincia:
-                    for letra in provincia:
-                        campo_provincia.send_keys(letra)
-                        time.sleep(0.1)
+            # Determinar el tipo de búsqueda: por referencia catastral o por dirección
+            if ref_catastral:
+                # BÚSQUEDA POR REFERENCIA CATASTRAL
+                try:
+                    # Hacer clic en la pestaña "RC" (Referencia Catastral)
+                    enlace_rc = WebDriverWait(driver, 10).until(
+                        EC.element_to_be_clickable((By.XPATH, "//a[@href='#refcat2' and @role='tab']"))
+                    )
+                    enlace_rc.click()
+                    print("Hecho clic en pestaña 'RC' (Referencia Catastral)", flush=True)
                     time.sleep(1)
-                    campo_provincia.send_keys(Keys.ENTER)
-                    print(f"Escrito '{provincia}' y pulsado ENTER para seleccionar la provincia.", flush=True)
-                else:
-                    print("Provincia vacía, campo limpiado.", flush=True)
-            except Exception as e:
-                print("[ERROR CATRASTO] No se pudo escribir la PROVINCIA. Verifique el nombre. El flujo se detiene.", file=sys.stderr, flush=True)
-                try:
-                    driver.quit()
-                except:
-                    pass
-                os._exit(1)
-
-            # Paso: escribir municipio
-            try:
-                campo_municipio = WebDriverWait(driver, 10).until(
-                    EC.element_to_be_clickable((By.ID, "ctl00_Contenido_municipioSelector"))
-                )
-                campo_municipio.clear()
-                if municipio:
-                    for letra in municipio:
-                        campo_municipio.send_keys(letra)
-                        time.sleep(0.1)
+                    
+                    # Introducir la referencia catastral
+                    from selenium.webdriver.common.keys import Keys
+                    campo_rc = WebDriverWait(driver, 10).until(
+                        EC.element_to_be_clickable((By.ID, "ctl00_Contenido_txtRC2"))
+                    )
+                    campo_rc.clear()
+                    for letra in ref_catastral:
+                        campo_rc.send_keys(letra)
+                        time.sleep(0.05)
+                    print(f"Escrito '{ref_catastral}' en el campo de Referencia Catastral.", flush=True)
                     time.sleep(1)
-                    campo_municipio.send_keys(Keys.ENTER)
-                    print(f"Escrito '{municipio}' y pulsado ENTER para seleccionar el municipio.", flush=True)
-                else:
-                    print("Municipio vacío, campo limpiado.", flush=True)
-            except Exception as e:
-                print("[ERROR CATRASTO] No se pudo escribir el MUNICIPIO. Verifique el nombre. El flujo se detiene.", file=sys.stderr, flush=True)
-                try:
-                    driver.quit()
-                except:
-                    pass
-                os._exit(1)
-
-            # Paso: escribir vía
-            try:
-                campo_via = WebDriverWait(driver, 10).until(
-                    EC.element_to_be_clickable((By.ID, "ctl00_Contenido_viaSelector"))
+                    
+                    # Pulsar el botón DATOS
+                    try:
+                        boton_datos = WebDriverWait(driver, 10).until(
+                            EC.element_to_be_clickable((By.ID, "ctl00_Contenido_btnDatos"))
+                        )
+                        boton_datos.click()
+                        print("Botón DATOS pulsado.", flush=True)
+                        time.sleep(2)
+                    except Exception as e:
+                        print("ERROR: No se puede pulsar el botón DATOS. Verifique que la referencia catastral es correcta.", file=sys.stderr, flush=True)
+                        try:
+                            driver.quit()
+                        except:
+                            pass
+                        os._exit(1)
+                
+                except Exception as e:
+                    print("[ERROR CATASTRO] Error en la búsqueda por referencia catastral:", e, file=sys.stderr, flush=True)
+                    try:
+                        driver.quit()
+                    except:
+                        pass
+                    os._exit(1)
+            
+            else:
+                # BÚSQUEDA POR DIRECCIÓN (código original)
+                enlace_calle_numero = WebDriverWait(driver, 10).until(
+                    EC.element_to_be_clickable((By.XPATH, "//a[normalize-space(text())='CALLE/NÚMERO']"))
                 )
-                campo_via.clear()
-                if via:
-                    for letra in via:
-                        campo_via.send_keys(letra)
+                enlace_calle_numero.click()
+                print("Hecho clic en CALLE/NÚMERO (primer iframe)", flush=True)
+
+                # Paso: escribir la provincia y pulsar ENTER
+                from selenium.webdriver.common.keys import Keys
+                try:
+                    campo_provincia = WebDriverWait(driver, 10).until(
+                        EC.element_to_be_clickable((By.ID, "ctl00_Contenido_provinceSelector"))
+                    )
+                    campo_provincia.clear()
+                    if provincia:
+                        for letra in provincia:
+                            campo_provincia.send_keys(letra)
+                            time.sleep(0.1)
+                        time.sleep(1)
+                        campo_provincia.send_keys(Keys.ENTER)
+                        print(f"Escrito '{provincia}' y pulsado ENTER para seleccionar la provincia.", flush=True)
+                    else:
+                        print("Provincia vacía, campo limpiado.", flush=True)
+                except Exception as e:
+                    print("[ERROR CATRASTO] No se pudo escribir la PROVINCIA. Verifique el nombre. El flujo se detiene.", file=sys.stderr, flush=True)
+                    try:
+                        driver.quit()
+                    except:
+                        pass
+                    os._exit(1)
+
+                # Paso: escribir municipio
+                try:
+                    campo_municipio = WebDriverWait(driver, 10).until(
+                        EC.element_to_be_clickable((By.ID, "ctl00_Contenido_municipioSelector"))
+                    )
+                    campo_municipio.clear()
+                    if municipio:
+                        for letra in municipio:
+                            campo_municipio.send_keys(letra)
+                            time.sleep(0.1)
+                        time.sleep(1)
+                        campo_municipio.send_keys(Keys.ENTER)
+                        print(f"Escrito '{municipio}' y pulsado ENTER para seleccionar el municipio.", flush=True)
+                    else:
+                        print("Municipio vacío, campo limpiado.", flush=True)
+                except Exception as e:
+                    print("[ERROR CATRASTO] No se pudo escribir el MUNICIPIO. Verifique el nombre. El flujo se detiene.", file=sys.stderr, flush=True)
+                    try:
+                        driver.quit()
+                    except:
+                        pass
+                    os._exit(1)
+
+                # Paso: escribir vía
+                try:
+                    campo_via = WebDriverWait(driver, 10).until(
+                        EC.element_to_be_clickable((By.ID, "ctl00_Contenido_viaSelector"))
+                    )
+                    campo_via.clear()
+                    if via:
+                        for letra in via:
+                            campo_via.send_keys(letra)
+                            time.sleep(0.1)
+                        time.sleep(1)
+                        campo_via.send_keys(Keys.ENTER)
+                        print(f"Escrito '{via}' y pulsado ENTER para seleccionar la vía.", flush=True)
+                    else:
+                        print("Vía vacía, campo limpiado.", flush=True)
+                except Exception as e:
+                    print("[ERROR CATRASTO] No se pudo escribir la VÍA. Verifique el nombre. El flujo se detiene.", file=sys.stderr, flush=True)
+                    try:
+                        driver.quit()
+                    except:
+                        pass
+                    os._exit(1)
+
+                # Paso: escribir número
+                # Comprobar si el campo número es clickeable tras introducir la vía
+                try:
+                    campo_numero = WebDriverWait(driver, 5).until(
+                        EC.element_to_be_clickable((By.ID, "ctl00_Contenido_txtNum"))
+                    )
+                    campo_numero.clear()
+                except Exception as e:
+                    print("[ERROR CATRASTO] La VÍA introducida no es válida o no existe en el catastro. El flujo se detiene.", file=sys.stderr, flush=True)
+                    try:
+                        driver.quit()
+                    except:
+                        pass
+                    os._exit(1)
+                if numero:
+                    for letra in numero:
+                        campo_numero.send_keys(letra)
                         time.sleep(0.1)
-                    time.sleep(1)
-                    campo_via.send_keys(Keys.ENTER)
-                    print(f"Escrito '{via}' y pulsado ENTER para seleccionar la vía.", flush=True)
+                    print(f"Escrito '{numero}' en el campo número.", flush=True)
                 else:
-                    print("Vía vacía, campo limpiado.", flush=True)
-            except Exception as e:
-                print("[ERROR CATRASTO] No se pudo escribir la VÍA. Verifique el nombre. El flujo se detiene.", file=sys.stderr, flush=True)
-                try:
-                    driver.quit()
-                except:
-                    pass
-                os._exit(1)
+                    print("Número vacío, campo limpiado.", flush=True)
+                time.sleep(1)
 
-            # Paso: escribir número
-            # Comprobar si el campo número es clickeable tras introducir la vía
-            try:
-                campo_numero = WebDriverWait(driver, 5).until(
-                    EC.element_to_be_clickable((By.ID, "ctl00_Contenido_txtNum"))
+                # Paso: escribir bloque
+                campo_bloque = WebDriverWait(driver, 10).until(
+                    EC.element_to_be_clickable((By.ID, "ctl00_Contenido_txtBlq"))
                 )
-                campo_numero.clear()
-            except Exception as e:
-                print("[ERROR CATRASTO] La VÍA introducida no es válida o no existe en el catastro. El flujo se detiene.", file=sys.stderr, flush=True)
-                try:
-                    driver.quit()
-                except:
-                    pass
-                os._exit(1)
-            if numero:
-                for letra in numero:
-                    campo_numero.send_keys(letra)
-                    time.sleep(0.1)
-                print(f"Escrito '{numero}' en el campo número.", flush=True)
-            else:
-                print("Número vacío, campo limpiado.", flush=True)
-            time.sleep(1)
+                campo_bloque.clear()
+                if bloque:
+                    for letra in bloque:
+                        campo_bloque.send_keys(letra)
+                        time.sleep(0.1)
+                    print(f"Escrito '{bloque}' en el campo bloque.", flush=True)
+                else:
+                    print("Bloque vacío, campo limpiado.", flush=True)
+                time.sleep(0.5)
 
-            # Paso: escribir bloque
-            campo_bloque = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.ID, "ctl00_Contenido_txtBlq"))
-            )
-            campo_bloque.clear()
-            if bloque:
-                for letra in bloque:
-                    campo_bloque.send_keys(letra)
-                    time.sleep(0.1)
-                print(f"Escrito '{bloque}' en el campo bloque.", flush=True)
-            else:
-                print("Bloque vacío, campo limpiado.", flush=True)
-            time.sleep(0.5)
-
-            # Paso: escribir escalera
-            campo_escalera = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.ID, "ctl00_Contenido_txtEsc"))
-            )
-            campo_escalera.clear()
-            if escalera:
-                for letra in escalera:
-                    campo_escalera.send_keys(letra)
-                    time.sleep(0.1)
-                print(f"Escrito '{escalera}' en el campo escalera.", flush=True)
-            else:
-                print("Campo escalera dejado vacío.", flush=True)
-            time.sleep(0.5)
-
-            # Paso: escribir planta
-            campo_planta = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.ID, "ctl00_Contenido_txtPlt"))
-            )
-            campo_planta.clear()
-            if planta:
-                for letra in planta:
-                    campo_planta.send_keys(letra)
-                    time.sleep(0.1)
-                print(f"Escrito '{planta}' en el campo planta.", flush=True)
-            else:
-                print("Campo planta dejado vacío.", flush=True)
-            time.sleep(0.5)
-
-            # Paso: escribir puerta
-            campo_puerta = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.ID, "ctl00_Contenido_txtPrt"))
-            )
-            campo_puerta.clear()
-            if puerta:
-                for letra in puerta:
-                    campo_puerta.send_keys(letra)
-                    time.sleep(0.1)
-                print(f"Escrito '{puerta}' en el campo puerta.", flush=True)
-            else:
-                print("Campo puerta dejado vacío.", flush=True)
-            time.sleep(0.5)
-
-            # Paso: pulsar el botón DATOS
-            # Intentar pulsar el botón DATOS
-            try:
-                boton_datos = WebDriverWait(driver, 10).until(
-                    EC.element_to_be_clickable((By.ID, "ctl00_Contenido_btnDatos"))
+                # Paso: escribir escalera
+                campo_escalera = WebDriverWait(driver, 10).until(
+                    EC.element_to_be_clickable((By.ID, "ctl00_Contenido_txtEsc"))
                 )
-                boton_datos.click()
-                print("Botón DATOS pulsado.", flush=True)
-                time.sleep(2)
-            except Exception as e:
-                # Si no se puede pulsar el botón, probablemente hay error en PROVINCIA, MUNICIPIO o VIA
-                print("ERROR: No se puede pulsar el botón DATOS. Verifique que los campos PROVINCIA, MUNICIPIO o VÍA sean correctos y existen en el catastro.", file=sys.stderr, flush=True)
+                campo_escalera.clear()
+                if escalera:
+                    for letra in escalera:
+                        campo_escalera.send_keys(letra)
+                        time.sleep(0.1)
+                    print(f"Escrito '{escalera}' en el campo escalera.", flush=True)
+                else:
+                    print("Campo escalera dejado vacío.", flush=True)
+                time.sleep(0.5)
+
+                # Paso: escribir planta
+                campo_planta = WebDriverWait(driver, 10).until(
+                    EC.element_to_be_clickable((By.ID, "ctl00_Contenido_txtPlt"))
+                )
+                campo_planta.clear()
+                if planta:
+                    for letra in planta:
+                        campo_planta.send_keys(letra)
+                        time.sleep(0.1)
+                    print(f"Escrito '{planta}' en el campo planta.", flush=True)
+                else:
+                    print("Campo planta dejado vacío.", flush=True)
+                time.sleep(0.5)
+
+                # Paso: escribir puerta
+                campo_puerta = WebDriverWait(driver, 10).until(
+                    EC.element_to_be_clickable((By.ID, "ctl00_Contenido_txtPrt"))
+                )
+                campo_puerta.clear()
+                if puerta:
+                    for letra in puerta:
+                        campo_puerta.send_keys(letra)
+                        time.sleep(0.1)
+                    print(f"Escrito '{puerta}' en el campo puerta.", flush=True)
+                else:
+                    print("Campo puerta dejado vacío.", flush=True)
+                time.sleep(0.5)
+
+                # Paso: pulsar el botón DATOS
+                # Intentar pulsar el botón DATOS
                 try:
-                    driver.quit()
-                except:
-                    pass
-                os._exit(1)
+                    boton_datos = WebDriverWait(driver, 10).until(
+                        EC.element_to_be_clickable((By.ID, "ctl00_Contenido_btnDatos"))
+                    )
+                    boton_datos.click()
+                    print("Botón DATOS pulsado.", flush=True)
+                    time.sleep(2)
+                except Exception as e:
+                    # Si no se puede pulsar el botón, probablemente hay error en PROVINCIA, MUNICIPIO o VIA
+                    print("ERROR: No se puede pulsar el botón DATOS. Verifique que los campos PROVINCIA, MUNICIPIO o VÍA sean correctos y existen en el catastro.", file=sys.stderr, flush=True)
+                    try:
+                        driver.quit()
+                    except:
+                        pass
+                    os._exit(1)
 
             # Cambiar a contenido principal para comprobar error y detener el flujo si aparece
             driver.switch_to.default_content()
@@ -255,7 +319,10 @@ try:
                     EC.visibility_of_element_located((By.ID, "DivErrorUrbana"))
                 )
                 msg = error_elem.find_element(By.ID, "ctl00_Contenido_txtErrorUrbana").text
-                print("\n[ERROR CATRASTO] Consulta detenida por error en los datos:", file=sys.stderr, flush=True)
+                if ref_catastral:
+                    print("\n[ERROR CATASTRO] Consulta detenida por error en la Referencia Catastral:", file=sys.stderr, flush=True)
+                else:
+                    print("\n[ERROR CATASTRO] Consulta detenida por error en los datos:", file=sys.stderr, flush=True)
                 print(f"  → {msg}", file=sys.stderr, flush=True)
                 print("El navegador se cerrará y el proceso termina.", file=sys.stderr, flush=True)
                 try:
@@ -303,7 +370,6 @@ try:
                 driver.execute_script("arguments[0].scrollIntoView();", enlace_carto_catastral)
                 driver.execute_script("arguments[0].click();", enlace_carto_catastral)
                 print("¡Enlace 'Cartografía Catastral' pulsado correctamente! (se abrirá una nueva pestaña)", flush=True)
-                import time
                 time.sleep(2)
 
                 # Esperar hasta 5 segundos para detectar si se abre una nueva pestaña
@@ -337,7 +403,6 @@ try:
                         print("No se pudo abrir manualmente la pestaña de Cartografía Catastral:", e, flush=True)
 
                 # Denegar cookies si aparece el botón
-                import time
                 try:
                     t0 = time.time()
                     boton_denegar = WebDriverWait(driver, 2).until(
@@ -390,7 +455,10 @@ try:
             except Exception as e:
                 print("No se pudo hacer clic en el enlace 'Cartografía Catastral':", e, flush=True)
         except Exception as e:
-            print("No se pudo hacer clic en CALLE/NÚMERO o escribir provincia/municipio/vía/número/bloque/escalera/planta/puerta o pulsar DATOS en el primer iframe:", e, flush=True)
+            if ref_catastral:
+                print("No se pudo hacer clic en 'RC' o escribir referencia catastral o pulsar DATOS:", e, flush=True)
+            else:
+                print("No se pudo hacer clic en CALLE/NÚMERO o escribir provincia/municipio/vía/número/bloque/escalera/planta/puerta o pulsar DATOS en el primer iframe:", e, flush=True)
         finally:
             driver.switch_to.default_content()
     else:
