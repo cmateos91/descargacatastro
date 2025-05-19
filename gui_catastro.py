@@ -8,6 +8,7 @@ from threading import Thread
 from tkinter import messagebox
 import webbrowser
 
+#Esto es un comentario
 class CatastroAppModern(ctk.CTk):
     def __init__(self):
         super().__init__()
