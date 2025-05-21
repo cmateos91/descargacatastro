@@ -4,7 +4,7 @@
 
 ---
 
-## 🐍 Instalación de Python y dependencias (para principiantes)
+## 🐍 Instalación de Python y dependencias
 
 ### 1. Instalar Python y pip
 - Ve a la web oficial: [https://www.python.org/downloads/](https://www.python.org/downloads/)
